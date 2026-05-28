@@ -9,7 +9,7 @@
     body {
       margin: 0;
       overflow: hidden;
-      background: #111;
+      background: black;
       font-family: Arial, sans-serif;
     }
 
@@ -18,19 +18,21 @@
       background: linear-gradient(to bottom, #222, #000);
     }
 
-    #text {
+    #info {
       position: absolute;
-      top: 20px;
-      left: 20px;
+      top: 15px;
+      left: 15px;
       color: white;
-      font-size: 24px;
+      font-size: 22px;
     }
   </style>
 </head>
 
 <body>
 
-<div id="text">SPACE = Springen</div>
+<div id="info">
+  A/D = Bewegen | W oder SPACE = Springen
+</div>
 
 <canvas id="game"></canvas>
 
@@ -44,11 +46,11 @@ canvas.height = window.innerHeight;
 // SPIELER
 const player = {
   x: 150,
-  y: canvas.height - 180,
+  y: canvas.height - 200,
   width: 50,
-  height: 50,
-  color: "white",
+  height: 80,
   velocityY: 0,
+  speed: 7,
   jumping: false
 };
 
@@ -59,25 +61,40 @@ const ground = canvas.height - 120;
 const rock = {
   x: 20,
   y: canvas.height - 150,
-  radius: 50
+  radius: 55
 };
-
-// HINDERNISSE
-let obstacles = [];
 
 // SCORE
 let score = 0;
 
-// SPRINGEN
-document.addEventListener("keydown", function(e) {
-  if (e.code === "Space" && !player.jumping) {
+// HINDERNISSE
+let obstacles = [];
+
+// TASTEN
+let keys = {};
+
+// TASTATUR
+document.addEventListener("keydown", (e) => {
+
+  keys[e.key.toLowerCase()] = true;
+
+  // Springen
+  if (
+    (e.code === "Space" || e.key.toLowerCase() === "w")
+    && !player.jumping
+  ) {
     player.velocityY = -18;
     player.jumping = true;
   }
 });
 
+document.addEventListener("keyup", (e) => {
+  keys[e.key.toLowerCase()] = false;
+});
+
 // HINDERNIS ERSTELLEN
 function createObstacle() {
+
   obstacles.push({
     x: canvas.width,
     y: ground - 40,
@@ -89,45 +106,108 @@ function createObstacle() {
 // GAME LOOP
 function update() {
 
-  // Hintergrund
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Tunnel Boden
+  // Hintergrund
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Tunnel
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillRect(0, 0, canvas.width, ground);
+
+  // Boden
   ctx.fillStyle = "#333";
   ctx.fillRect(0, ground, canvas.width, 120);
 
-  // Linien auf Straße
+  // Straßenlinien
   ctx.fillStyle = "#555";
-  for (let i = 0; i < canvas.width; i += 100) {
-    ctx.fillRect(i, ground + 50, 50, 10);
+
+  for (let i = 0; i < canvas.width; i += 120) {
+    ctx.fillRect(i, ground + 50, 60, 10);
   }
 
-  // Spieler Physik
+  // SPIELER BEWEGUNG
+  if (keys["d"]) {
+    player.x += player.speed;
+  }
+
+  if (keys["a"]) {
+    player.x -= player.speed;
+  }
+
+  // Grenzen
+  if (player.x < 0) player.x = 0;
+
+  if (player.x > canvas.width - player.width) {
+    player.x = canvas.width - player.width;
+  }
+
+  // Gravitation
   player.y += player.velocityY;
   player.velocityY += 1;
 
+  // Boden Check
   if (player.y >= ground - player.height) {
     player.y = ground - player.height;
     player.jumping = false;
   }
 
-  // Spieler zeichnen
-  ctx.fillStyle = player.color;
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  // ===== STICKMAN =====
 
-  // Stein
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 4;
+
+  // Kopf
+  ctx.beginPath();
+  ctx.arc(player.x + 25, player.y + 10, 10, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Körper
+  ctx.beginPath();
+  ctx.moveTo(player.x + 25, player.y + 20);
+  ctx.lineTo(player.x + 25, player.y + 50);
+  ctx.stroke();
+
+  // Arme
+  ctx.beginPath();
+  ctx.moveTo(player.x + 10, player.y + 35);
+  ctx.lineTo(player.x + 40, player.y + 35);
+  ctx.stroke();
+
+  // Beine
+  ctx.beginPath();
+  ctx.moveTo(player.x + 25, player.y + 50);
+  ctx.lineTo(player.x + 10, player.y + 75);
+
+  ctx.moveTo(player.x + 25, player.y + 50);
+  ctx.lineTo(player.x + 40, player.y + 75);
+  ctx.stroke();
+
+  // ===== STEIN =====
+
   ctx.beginPath();
   ctx.arc(rock.x, rock.y, rock.radius, 0, Math.PI * 2);
   ctx.fillStyle = "#666";
   ctx.fill();
 
-  // Stein bewegt sich langsam
-  rock.x += 0.3;
+  // Stein bewegt sich
+  rock.x += 0.25;
 
-  // Hindernisse
+  // Stein trifft Spieler
+  let distance = player.x - rock.x;
+
+  if (distance < 40) {
+    alert("💀 Der Stein hat dich erwischt!");
+    location.reload();
+  }
+
+  // ===== HINDERNISSE =====
+
   ctx.fillStyle = "red";
 
   obstacles.forEach((obs, index) => {
+
     obs.x -= 8;
 
     ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
@@ -139,21 +219,21 @@ function update() {
       player.y < obs.y + obs.height &&
       player.y + player.height > obs.y
     ) {
-      alert("Game Over! Score: " + score);
+      alert("💀 Game Over! Score: " + score);
       location.reload();
     }
 
-    // Löschen
+    // Entfernen
     if (obs.x + obs.width < 0) {
       obstacles.splice(index, 1);
       score++;
     }
   });
 
-  // Score anzeigen
+  // SCORE
   ctx.fillStyle = "white";
   ctx.font = "30px Arial";
-  ctx.fillText("Score: " + score, 20, 80);
+  ctx.fillText("Score: " + score, 20, 60);
 
   requestAnimationFrame(update);
 }
@@ -161,6 +241,7 @@ function update() {
 // Hindernisse spawnen
 setInterval(createObstacle, 2000);
 
+// Start
 update();
 </script>
 
