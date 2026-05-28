@@ -83,13 +83,33 @@ document.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
 });
 
-// CLICK START
-canvas.addEventListener("click", () => {
-  if (!gameStarted) gameStarted = true;
+// ===== START CLICK =====
+canvas.addEventListener("click", (e) => {
+
+  if (!gameStarted) {
+    gameStarted = true;
+    return;
+  }
+
+  if (gameOver) {
+
+    const x = e.clientX;
+    const y = e.clientY;
+
+    if (
+      x > canvas.width / 2 - 120 &&
+      x < canvas.width / 2 + 120 &&
+      y > canvas.height / 2 + 20 &&
+      y < canvas.height / 2 + 90
+    ) {
+      location.reload();
+    }
+  }
 });
 
 // ===== OBSTACLES =====
 function createObstacle() {
+
   if (!gameStarted || gameOver) return;
 
   obstacles.push({
@@ -100,7 +120,7 @@ function createObstacle() {
   });
 }
 
-setInterval(createObstacle, 1800);
+setInterval(createObstacle, 1600);
 
 // ===== GAME LOOP =====
 function update() {
@@ -137,10 +157,18 @@ function update() {
     ctx.fillStyle = "white";
     ctx.font = "60px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 60);
+    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 80);
 
     ctx.font = "30px Arial";
-    ctx.fillText("Score: " + score, canvas.width / 2, canvas.height / 2);
+    ctx.fillText("Score: " + score, canvas.width / 2, canvas.height / 2 - 20);
+
+    // RESTART BUTTON
+    ctx.fillStyle = "red";
+    ctx.fillRect(canvas.width / 2 - 120, canvas.height / 2 + 20, 240, 70);
+
+    ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
+    ctx.fillText("RESTART", canvas.width / 2, canvas.height / 2 + 65);
 
     return;
   }
@@ -173,7 +201,7 @@ function update() {
     level = 2;
   }
 
-  // ===== PHYSICS =====
+  // ===== PLAYER PHYSICS =====
   player.y += player.velocityY;
   player.velocityY += 1;
 
@@ -182,16 +210,16 @@ function update() {
     player.jumping = false;
   }
 
-  // ===== PLAYER IMAGE =====
+  // ===== PLAYER DRAW =====
   ctx.drawImage(playerImg, player.x, player.y, 60, 80);
 
-  // ===== ROCK =====
+  // ===== ROCK (FAST) =====
   ctx.beginPath();
   ctx.arc(rock.x, rock.y, rock.radius, 0, Math.PI * 2);
   ctx.fillStyle = "#666";
   ctx.fill();
 
-  rock.x += 0.6;
+  rock.x += 1.2 + level * 0.3;
 
   if (player.x - rock.x < 40) {
     gameOver = true;
