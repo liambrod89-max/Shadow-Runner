@@ -1,38 +1,25 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shadow Runner</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shadow Runner</title>
 
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-      font-family: Arial, sans-serif;
-    }
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+    font-family: Arial;
+  }
 
-    canvas {
-      display: block;
-      background: linear-gradient(to bottom, #222, #000);
-    }
-
-    #info {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      color: white;
-      font-size: 22px;
-    }
-  </style>
+  canvas {
+    display: block;
+  }
+</style>
 </head>
 
 <body>
-
-<div id="info">
-  A/D = Bewegen | W oder SPACE = Springen
-</div>
 
 <canvas id="game"></canvas>
 
@@ -43,46 +30,45 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// SPIELER
+// ===== GAME STATE =====
+let gameOver = false;
+let score = 0;
+let level = 1;
+let worldOffset = 0;
+
+// ===== PLAYER =====
 const player = {
   x: 150,
   y: canvas.height - 200,
-  width: 50,
-  height: 80,
   velocityY: 0,
   speed: 7,
   jumping: false
 };
 
-// BODEN
+// ===== WORLD =====
 const ground = canvas.height - 120;
 
-// STEIN
+// ===== ROCK =====
 const rock = {
-  x: 20,
+  x: 0,
   y: canvas.height - 150,
   radius: 55
 };
 
-// SCORE
-let score = 0;
+// ===== CASTLE =====
+const castleX = 4000;
+let inCastle = false;
 
-// HINDERNISSE
+// ===== OBSTACLES =====
 let obstacles = [];
-
-// TASTEN
 let keys = {};
 
-// TASTATUR
+// ===== INPUT =====
 document.addEventListener("keydown", (e) => {
 
   keys[e.key.toLowerCase()] = true;
 
-  // Springen
-  if (
-    (e.code === "Space" || e.key.toLowerCase() === "w")
-    && !player.jumping
-  ) {
+  if ((e.code === "Space" || e.key.toLowerCase() === "w") && !player.jumping) {
     player.velocityY = -18;
     player.jumping = true;
   }
@@ -92,156 +78,167 @@ document.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
 });
 
-// HINDERNIS ERSTELLEN
+// ===== OBSTACLES =====
 function createObstacle() {
 
+  if (gameOver) return;
+
   obstacles.push({
-    x: canvas.width,
+    x: worldOffset + canvas.width + 200,
     y: ground - 40,
     width: 40,
     height: 40
   });
 }
 
-// GAME LOOP
+setInterval(createObstacle, 1800);
+
+// ===== UPDATE =====
 function update() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Hintergrund
-  ctx.fillStyle = "#111";
+  if (gameOver) {
+    ctx.fillStyle = "rgba(0,0,0,0.8)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "white";
+    ctx.font = "60px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 50);
+
+    ctx.font = "30px Arial";
+    ctx.fillText("Score: " + score, canvas.width / 2, canvas.height / 2);
+
+    return;
+  }
+
+  // ===== WORLD MOVE =====
+  if (!inCastle) {
+    if (keys["d"]) worldOffset += player.speed;
+    if (keys["a"]) worldOffset -= player.speed;
+  }
+
+  if (worldOffset < 0) worldOffset = 0;
+
+  // ===== LEVEL 1 STYLE =====
+  if (level === 1) {
+    ctx.fillStyle = "#111";
+  } else {
+    ctx.fillStyle = "#1b1b1b"; // Castle
+  }
+
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Tunnel
-  ctx.fillStyle = "#1a1a1a";
-  ctx.fillRect(0, 0, canvas.width, ground);
-
-  // Boden
+  // ===== GROUND =====
   ctx.fillStyle = "#333";
   ctx.fillRect(0, ground, canvas.width, 120);
 
-  // Straßenlinien
-  ctx.fillStyle = "#555";
+  // ===== CASTLE =====
+  ctx.fillStyle = "gray";
+  ctx.fillRect(castleX - worldOffset, ground - 250, 200, 250);
 
-  for (let i = 0; i < canvas.width; i += 120) {
-    ctx.fillRect(i, ground + 50, 60, 10);
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("🏰 BURG", castleX - worldOffset, ground - 260);
+
+  // ENTER CASTLE
+  if (worldOffset >= castleX - 50 && level === 1) {
+    inCastle = true;
+    level = 2;
   }
 
-  // SPIELER BEWEGUNG
-  if (keys["d"]) {
-    player.x += player.speed;
-  }
-
-  if (keys["a"]) {
-    player.x -= player.speed;
-  }
-
-  // Grenzen
-  if (player.x < 0) player.x = 0;
-
-  if (player.x > canvas.width - player.width) {
-    player.x = canvas.width - player.width;
-  }
-
-  // Gravitation
+  // ===== PLAYER PHYSICS =====
   player.y += player.velocityY;
   player.velocityY += 1;
 
-  // Boden Check
-  if (player.y >= ground - player.height) {
-    player.y = ground - player.height;
+  if (player.y >= ground - 80) {
+    player.y = ground - 80;
     player.jumping = false;
   }
 
   // ===== STICKMAN =====
-
   ctx.strokeStyle = "white";
   ctx.lineWidth = 4;
 
-  // Kopf
+  let px = player.x;
+  let py = player.y;
+
   ctx.beginPath();
-  ctx.arc(player.x + 25, player.y + 10, 10, 0, Math.PI * 2);
+  ctx.arc(px + 25, py + 10, 10, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Körper
   ctx.beginPath();
-  ctx.moveTo(player.x + 25, player.y + 20);
-  ctx.lineTo(player.x + 25, player.y + 50);
+  ctx.moveTo(px + 25, py + 20);
+  ctx.lineTo(px + 25, py + 50);
   ctx.stroke();
 
-  // Arme
   ctx.beginPath();
-  ctx.moveTo(player.x + 10, player.y + 35);
-  ctx.lineTo(player.x + 40, player.y + 35);
+  ctx.moveTo(px + 10, py + 35);
+  ctx.lineTo(px + 40, py + 35);
   ctx.stroke();
 
-  // Beine
   ctx.beginPath();
-  ctx.moveTo(player.x + 25, player.y + 50);
-  ctx.lineTo(player.x + 10, player.y + 75);
+  ctx.moveTo(px + 25, py + 50);
+  ctx.lineTo(px + 10, py + 75);
 
-  ctx.moveTo(player.x + 25, player.y + 50);
-  ctx.lineTo(player.x + 40, player.y + 75);
+  ctx.moveTo(px + 25, py + 50);
+  ctx.lineTo(px + 40, py + 75);
   ctx.stroke();
 
-  // ===== STEIN =====
-
+  // ===== ROCK =====
   ctx.beginPath();
   ctx.arc(rock.x, rock.y, rock.radius, 0, Math.PI * 2);
   ctx.fillStyle = "#666";
   ctx.fill();
 
-  // Stein bewegt sich
-  rock.x += 0.25;
+  rock.x += 0.4;
 
-  // Stein trifft Spieler
-  let distance = player.x - rock.x;
-
-  if (distance < 40) {
-    alert("💀 Der Stein hat dich erwischt!");
-    location.reload();
+  if (player.x - rock.x < 40) {
+    gameOver = true;
   }
 
-  // ===== HINDERNISSE =====
-
+  // ===== OBSTACLES =====
   ctx.fillStyle = "red";
 
   obstacles.forEach((obs, index) => {
 
     obs.x -= 8;
 
-    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+    ctx.fillRect(obs.x - worldOffset, obs.y, obs.width, obs.height);
 
-    // Kollision
     if (
-      player.x < obs.x + obs.width &&
-      player.x + player.width > obs.x &&
+      player.x < (obs.x - worldOffset) + obs.width &&
+      player.x + 50 > (obs.x - worldOffset) &&
       player.y < obs.y + obs.height &&
-      player.y + player.height > obs.y
+      player.y + 80 > obs.y
     ) {
-      alert("💀 Game Over! Score: " + score);
-      location.reload();
+      gameOver = true;
     }
 
-    // Entfernen
-    if (obs.x + obs.width < 0) {
+    if (obs.x + obs.width < worldOffset - 200) {
       obstacles.splice(index, 1);
       score++;
     }
   });
 
-  // SCORE
+  // ===== INPUT MOVE =====
+  if (keys["a"]) player.x -= player.speed;
+  if (keys["d"]) player.x += player.speed;
+
+  if (player.x < 0) player.x = 0;
+  if (player.x > canvas.width - 50) player.x = canvas.width - 50;
+
+  // ===== SCORE =====
   ctx.fillStyle = "white";
-  ctx.font = "30px Arial";
-  ctx.fillText("Score: " + score, 20, 60);
+  ctx.font = "25px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("Score: " + score, 20, 40);
+  ctx.fillText("Level: " + level, 20, 70);
 
   requestAnimationFrame(update);
 }
 
-// Hindernisse spawnen
-setInterval(createObstacle, 2000);
-
-// Start
 update();
 </script>
 
